@@ -1,6 +1,3 @@
-use std::thread::sleep;
-use std::time::{Duration, Instant};
-
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowEvent};
 use specs::prelude::{Builder as _, DispatcherBuilder, World, WorldExt as _};
 
@@ -14,25 +11,8 @@ mod util;
 use crate::asset_manager::AssetManager;
 use crate::components::Sprite;
 pub use crate::game_error::GameError;
-use crate::systems::RenderingSystem;
+use crate::systems::{FrameLimiterSystem, RenderingSystem};
 pub use crate::types::WindowState;
-
-fn limit_frame_rate<F, V>(fps: u32, main_loop: F) -> impl (Fn() -> V)
-where
-    F: Fn() -> V,
-{
-    let frame_duration = Duration::from_secs(1) / fps;
-    move || {
-        let start = Instant::now();
-        let val = main_loop();
-        let elapsed = Instant::now() - start;
-        if elapsed <= frame_duration {
-            sleep(frame_duration - elapsed);
-        }
-
-        val
-    }
-}
 
 pub fn start_app(mut surface: GlfwSurface, world: &mut World) -> Result<(), GameError> {
     let asset_manager = {
@@ -51,6 +31,10 @@ pub fn start_app(mut surface: GlfwSurface, world: &mut World) -> Result<(), Game
     };
 
     let mut resize = false;
+
+    let mut dispatcher = DispatcherBuilder::new()
+        .with(FrameLimiterSystem::new(60), "fps_stuff", &[])
+        .build();
 
     'app: loop {
         for event in surface.poll_events() {
@@ -77,7 +61,6 @@ pub fn start_app(mut surface: GlfwSurface, world: &mut World) -> Result<(), Game
             renderer.resize(width, height);
         }
 
-        let mut dispatcher = DispatcherBuilder::new().build();
         dispatcher.dispatch(world);
 
         renderer.render(&mut surface, world, &asset_manager);
