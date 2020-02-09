@@ -14,4 +14,4 @@ luminance-windowing = "0.8"
 image = "0.22"
 cgmath = "0.17"
 
-rand = "0.7.3"
+specs = "0.15"
