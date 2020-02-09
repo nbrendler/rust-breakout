@@ -3,23 +3,6 @@ use std::time::{Duration, Instant};
 
 use specs::prelude::System;
 
-fn limit_frame_rate<F, V>(fps: u32, main_loop: F) -> impl (Fn() -> V)
-where
-    F: Fn() -> V,
-{
-    let frame_duration = Duration::from_secs(1) / fps;
-    move || {
-        let start = Instant::now();
-        let val = main_loop();
-        let elapsed = Instant::now() - start;
-        if elapsed <= frame_duration {
-            sleep(frame_duration - elapsed);
-        }
-
-        val
-    }
-}
-
 #[derive(Debug)]
 pub struct FrameLimiterSystem {
     frame_duration: Duration,

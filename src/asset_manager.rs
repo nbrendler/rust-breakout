@@ -1,11 +1,34 @@
+use std::ops::Deref;
 use std::path::Path;
 
-use crate::types::{SpriteTexture, TextureId, TextureInfo};
-use luminance::texture::{GenMipmaps, Sampler, Texture};
-use luminance_windowing::Surface;
+use image::{ImageBuffer, Pixel};
+
+use crate::types::TextureInfo;
+
+struct RawImageInfo {
+    width: u32,
+    height: u32,
+    data: Vec<u8>,
+}
+
+impl<P, Container> From<ImageBuffer<P, Container>> for RawImageInfo
+where
+    P: Pixel + 'static,
+    P::Subpixel: 'static,
+    Container: Deref<Target = [P::Subpixel]> + Into<Vec<u8>>,
+{
+    fn from(img: ImageBuffer<P, Container>) -> RawImageInfo {
+        let (width, height) = img.dimensions();
+        RawImageInfo {
+            width,
+            height,
+            data: img.into_raw().into(),
+        }
+    }
+}
 
 pub struct AssetManager {
-    tex_storage: Vec<SpriteTexture>,
+    tex_storage: Vec<RawImageInfo>,
     tex_count: usize,
 }
 
@@ -17,34 +40,27 @@ impl AssetManager {
         }
     }
 
-    pub fn load_texture_image<S: Surface, P: AsRef<Path>>(
+    pub fn load_texture_image<P: AsRef<Path>>(
         &mut self,
-        surface: &mut S,
         path: P,
     ) -> Result<TextureInfo, image::ImageError> {
         println!("Loading texture ({})", path.as_ref().display(),);
         let img = image::open(path).map(|img| img.to_rgb())?;
         let (width, height) = img.dimensions();
-        let texels = img.into_raw();
-        println!("Loaded: {}x{}", width, height);
 
-        // create the luminance texture; the third argument is the number of mipmaps we want (leave it
-        // to 0 for now) and the latest is the sampler to use when sampling the texels in the
-        // shader (we’ll just use the default one)
-        let tex = Texture::new(surface, [width, height], 0, Sampler::default())
-            .expect("luminance texture creation");
-
-        // the first argument disables mipmap generation (we don’t care so far)
-        tex.upload_raw(GenMipmaps::No, &texels).unwrap();
-
-        self.tex_storage.push(tex);
+        self.tex_storage.push(RawImageInfo::from(img));
         let id = self.tex_count;
         self.tex_count += 1;
 
         Ok(TextureInfo::new(id, width, height))
     }
 
-    pub fn get(&self, id: TextureId) -> Option<&SpriteTexture> {
-        self.tex_storage.get(id)
+    pub fn upload_textures<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(u32, u32, Vec<u8>) -> (),
+    {
+        for raw in self.tex_storage.drain(..) {
+            callback(raw.width, raw.height, raw.data);
+        }
     }
 }

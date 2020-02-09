@@ -1,9 +1,6 @@
-use luminance::pixel::NormRGB8UI;
-use luminance::texture::{Dim2, Flat, Texture};
 use luminance_derive::{Semantics, Vertex};
 
 pub type WorldPosition = (f32, f32);
-pub type SpriteTexture = Texture<Flat, Dim2, NormRGB8UI>;
 pub type TextureId = usize;
 
 pub struct WindowState {
@@ -14,6 +11,15 @@ pub struct WindowState {
 impl WindowState {
     pub fn new(width: u32, height: u32) -> Self {
         Self { width, height }
+    }
+}
+
+impl Default for WindowState {
+    fn default() -> Self {
+        WindowState {
+            width: 800,
+            height: 600,
+        }
     }
 }
 
