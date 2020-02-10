@@ -42,21 +42,21 @@ impl Sprite {
                 tex_coords: VertexTextureCoords::new(tex_coords.0),
             },
             Vertex {
-                position: VertexPosition::new([1., 0.]),
+                position: VertexPosition::new([width as f32, 0.]),
                 tex_coords: VertexTextureCoords::new(tex_coords.1),
             },
             Vertex {
-                position: VertexPosition::new([1., 1.]),
+                position: VertexPosition::new([width as f32, height as f32]),
                 tex_coords: VertexTextureCoords::new(tex_coords.2),
             },
             Vertex {
-                position: VertexPosition::new([0., 1.]),
+                position: VertexPosition::new([0., height as f32]),
                 tex_coords: VertexTextureCoords::new(tex_coords.3),
             },
         ];
 
         Sprite {
-            texture: texture.clone(),
+            texture: *texture,
             width,
             height,
             vertices,

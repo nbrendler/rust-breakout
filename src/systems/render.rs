@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use cgmath::{ortho, Matrix4, Vector3};
+use cgmath::{ortho, Matrix4};
 use luminance::{
     context::GraphicsContext as _,
     linear::M44,
@@ -16,8 +16,8 @@ use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEv
 use specs::{shrev::EventChannel, Join, ReadStorage, System, World, Write};
 
 use crate::asset_manager::AssetManager;
-use crate::components::Sprite;
-use crate::types::{GameEvent, TextureId, VertexSemantics, WindowState, WorldPosition};
+use crate::components::{Sprite, Transform};
+use crate::types::{GameEvent, TextureId, VertexSemantics, WindowState};
 
 const VS_STR: &str = include_str!("../vs.shader");
 const FS_STR: &str = include_str!("../fs.shader");
@@ -49,16 +49,19 @@ pub struct RenderingSystem {
 impl<'a> System<'a> for RenderingSystem {
     type SystemData = (
         ReadStorage<'a, Sprite>,
+        ReadStorage<'a, Transform>,
         Write<'a, WindowState>,
         Write<'a, EventChannel<GameEvent>>,
     );
-    fn run(&mut self, (sprites, mut window_state, mut event_channel): Self::SystemData) {
+    fn run(
+        &mut self,
+        (sprites, transforms, mut window_state, mut event_channel): Self::SystemData,
+    ) {
         let mut resize = false;
         for event in self.surface.borrow_mut().poll_events() {
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
                     event_channel.single_write(GameEvent::CloseWindow);
-                    //TODO: Some event thing here
                 }
                 WindowEvent::FramebufferSize(..) => {
                     resize = true;
@@ -74,8 +77,8 @@ impl<'a> System<'a> for RenderingSystem {
             window_state.height = height;
             self.resize(width, height);
         }
-        for sprite in sprites.join() {
-            self.queue_sprite_render(&sprite, (100., 100.));
+        for (sprite, transform) in (&sprites, &transforms).join() {
+            self.queue_sprite_render(&sprite, &transform);
         }
 
         self.render();
@@ -153,21 +156,7 @@ impl RenderingSystem {
         self.surface.borrow_mut().swap_buffers();
     }
 
-    fn queue_sprite_render(&mut self, sprite: &Sprite, pos: WorldPosition) {
-        let (width, height) = sprite.dimensions();
-        let w_width = self.surface.borrow().width();
-        let w_height = self.surface.borrow().height();
-        let aspect_ratio = w_width as f32 / w_height as f32;
-        let translate = Matrix4::<f32>::from_translation(Vector3::new(pos.0, pos.1, 0.));
-        let scale = translate
-            * Matrix4::<f32>::from_nonuniform_scale(
-                width as f32,
-                height as f32 * aspect_ratio,
-                1.0,
-            );
-
-        let model = scale;
-
+    fn queue_sprite_render(&mut self, sprite: &Sprite, transform: &Transform) {
         let tess = TessBuilder::new(self.surface.get_mut())
             .add_vertices(&sprite.vertices[..])
             .set_mode(Mode::TriangleFan)
@@ -176,7 +165,7 @@ impl RenderingSystem {
 
         self.buf.borrow_mut().push(RenderCommand {
             tess,
-            model,
+            model: transform.get_matrix(),
             texture: sprite.texture.id,
         });
     }

@@ -9,7 +9,7 @@ mod types;
 mod util;
 
 use crate::asset_manager::AssetManager;
-use crate::components::Sprite;
+use crate::components::{Sprite, Transform};
 pub use crate::game_error::GameError;
 use crate::systems::{FrameLimiterSystem, RenderingSystem};
 pub use crate::types::{GameEvent, WindowState};
@@ -19,9 +19,13 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
         let mut manager = AssetManager::new();
         let tex_info = manager.load_texture_image("resources/sprites.png")?;
         world.register::<Sprite>();
+        world.register::<Transform>();
         let sprite = Sprite::new(&tex_info, (1, 3), (17, 27));
+        let mut transform = Transform::default();
+        transform.set_pos((100., 100.));
+        transform.set_scale((3.0, 3.0));
 
-        world.create_entity().with(sprite).build();
+        world.create_entity().with(sprite).with(transform).build();
         world.insert::<AssetManager>(manager);
     };
 

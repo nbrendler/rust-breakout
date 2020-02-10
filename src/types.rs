@@ -1,7 +1,6 @@
 use luminance_derive::{Semantics, Vertex};
 use luminance_glfw::Key;
 
-pub type WorldPosition = (f32, f32);
 pub type TextureId = usize;
 
 pub struct WindowState {
