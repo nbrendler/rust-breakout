@@ -23,7 +23,7 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
         let sprite = Sprite::new(&tex_info, (1, 3), (17, 27));
         let mut transform = Transform::default();
         transform.set_pos((100., 100.));
-        transform.set_scale((3.0, 3.0));
+        transform.set_scale(1.0);
 
         world.create_entity().with(sprite).with(transform).build();
         world.insert::<AssetManager>(manager);

@@ -25,8 +25,8 @@ impl Transform {
         self.position = pos.into();
     }
 
-    pub fn set_scale<S: Into<Vector2<f32>>>(&mut self, scale: S) {
-        self.scale = scale.into();
+    pub fn set_scale(&mut self, scale: f32) {
+        self.scale = Vector2::new(scale, scale);
     }
 
     pub fn get_matrix(&self) -> Matrix4<f32> {

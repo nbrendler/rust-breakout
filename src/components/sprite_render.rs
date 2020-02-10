@@ -42,15 +42,15 @@ impl Sprite {
                 tex_coords: VertexTextureCoords::new(tex_coords.0),
             },
             Vertex {
-                position: VertexPosition::new([width as f32, 0.]),
+                position: VertexPosition::new([1., 0.]),
                 tex_coords: VertexTextureCoords::new(tex_coords.1),
             },
             Vertex {
-                position: VertexPosition::new([width as f32, height as f32]),
+                position: VertexPosition::new([1., 1.]),
                 tex_coords: VertexTextureCoords::new(tex_coords.2),
             },
             Vertex {
-                position: VertexPosition::new([0., height as f32]),
+                position: VertexPosition::new([0., 1.]),
                 tex_coords: VertexTextureCoords::new(tex_coords.3),
             },
         ];
