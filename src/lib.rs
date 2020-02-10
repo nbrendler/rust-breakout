@@ -1,7 +1,8 @@
-use specs::prelude::{Builder as _, DispatcherBuilder, System as _, World, WorldExt as _};
+use specs::prelude::{DispatcherBuilder, System as _, World, WorldExt as _};
 use specs::shrev::EventChannel;
 
 mod asset_manager;
+mod breakout;
 mod components;
 mod game_error;
 mod systems;
@@ -16,18 +17,12 @@ pub use crate::types::{GameEvent, WindowState};
 
 pub fn start_app(world: &mut World) -> Result<(), GameError> {
     {
-        let mut manager = AssetManager::new();
-        let tex_info = manager.load_texture_image("resources/sprites.png")?;
         world.register::<Sprite>();
         world.register::<Transform>();
-        let sprite = Sprite::new(&tex_info, (1, 3), (17, 27));
-        let mut transform = Transform::default();
-        transform.set_pos((100., 100.));
-        transform.set_scale(1.0);
-
-        world.create_entity().with(sprite).with(transform).build();
-        world.insert::<AssetManager>(manager);
+        world.insert::<AssetManager>(AssetManager::new());
     };
+
+    breakout::init(world)?;
 
     world.insert(WindowState::default());
 

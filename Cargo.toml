@@ -12,6 +12,5 @@ luminance-derive = "0.5"
 luminance-glfw = "0.12"
 luminance-windowing = "0.8"
 image = "0.22"
-cgmath = "0.17"
-
-specs = { version="0.15",  features=["nightly"]}
+cgmath = { version="0.17", features=["swizzle"] }
+specs = { version="0.15",  features=["nightly"] }
