@@ -1,4 +1,5 @@
 use luminance_derive::{Semantics, Vertex};
+use luminance_glfw::Key;
 
 pub type WorldPosition = (f32, f32);
 pub type TextureId = usize;
@@ -54,4 +55,13 @@ pub enum VertexSemantics {
 pub struct Vertex {
     pub position: VertexPosition,
     pub tex_coords: VertexTextureCoords,
+}
+
+pub enum InputEvent {
+    KeyUp(Key),
+}
+
+pub enum GameEvent {
+    CloseWindow,
+    Input(InputEvent),
 }

@@ -1,4 +1,5 @@
 use specs::prelude::{Builder as _, DispatcherBuilder, System as _, World, WorldExt as _};
+use specs::shrev::EventChannel;
 
 mod asset_manager;
 mod components;
@@ -11,7 +12,7 @@ use crate::asset_manager::AssetManager;
 use crate::components::Sprite;
 pub use crate::game_error::GameError;
 use crate::systems::{FrameLimiterSystem, RenderingSystem};
-pub use crate::types::WindowState;
+pub use crate::types::{GameEvent, WindowState};
 
 pub fn start_app(world: &mut World) -> Result<(), GameError> {
     {
@@ -26,6 +27,14 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
 
     world.insert(WindowState::default());
 
+    let mut reader = {
+        let mut ch = EventChannel::<GameEvent>::new();
+
+        let reader = ch.register_reader();
+        world.insert(ch);
+        reader
+    };
+
     let mut renderer = {
         let (width, height) = (800, 600);
         RenderingSystem::new(width, height)
@@ -34,12 +43,19 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
     renderer.setup(world);
 
     let mut dispatcher = DispatcherBuilder::new()
-        .with(FrameLimiterSystem::new(60), "fps_stuff", &[])
+        .with_barrier()
+        .with(FrameLimiterSystem::new(60), "fps_limiter", &[])
         .with_thread_local(renderer)
         .build();
 
-    loop {
+    'app: loop {
         dispatcher.dispatch(world);
+        let ch = world.fetch::<EventChannel<GameEvent>>();
+        for event in ch.read(&mut reader) {
+            if let GameEvent::CloseWindow = event {
+                break 'app;
+            }
+        }
     }
 
     Ok(())

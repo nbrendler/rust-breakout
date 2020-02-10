@@ -13,11 +13,11 @@ use luminance::{
 };
 use luminance_derive::UniformInterface;
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
-use specs::{Join, ReadStorage, System, World, WriteExpect};
+use specs::{shrev::EventChannel, Join, ReadStorage, System, World, Write};
 
 use crate::asset_manager::AssetManager;
 use crate::components::Sprite;
-use crate::types::{TextureId, VertexSemantics, WindowState, WorldPosition};
+use crate::types::{GameEvent, TextureId, VertexSemantics, WindowState, WorldPosition};
 
 const VS_STR: &str = include_str!("../vs.shader");
 const FS_STR: &str = include_str!("../fs.shader");
@@ -47,12 +47,17 @@ pub struct RenderingSystem {
 }
 
 impl<'a> System<'a> for RenderingSystem {
-    type SystemData = (ReadStorage<'a, Sprite>, WriteExpect<'a, WindowState>);
-    fn run(&mut self, (sprites, mut window_state): Self::SystemData) {
+    type SystemData = (
+        ReadStorage<'a, Sprite>,
+        Write<'a, WindowState>,
+        Write<'a, EventChannel<GameEvent>>,
+    );
+    fn run(&mut self, (sprites, mut window_state, mut event_channel): Self::SystemData) {
         let mut resize = false;
         for event in self.surface.borrow_mut().poll_events() {
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
+                    event_channel.single_write(GameEvent::CloseWindow);
                     //TODO: Some event thing here
                 }
                 WindowEvent::FramebufferSize(..) => {
