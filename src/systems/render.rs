@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use cgmath::{ortho, Matrix as _, Matrix4};
+use cgmath::{ortho, EuclideanSpace, Matrix as _, Matrix4, Point3, Vector3, Vector4};
 use luminance::{
     context::GraphicsContext as _,
     linear::M44,
@@ -163,13 +163,24 @@ impl RenderingSystem {
             .build()
             .unwrap();
 
+        let screen_height = { self.surface.borrow().height() as f32 };
+
         let (width, height) = sprite.dimensions();
+
         let mut model = transform.get_matrix();
 
         // scale X by sprite width
         model.replace_col(0, model.x * width as f32);
         // scale Y by sprite height
         model.replace_col(1, model.y * height as f32);
+
+        // invert Y
+        model = Matrix4::<f32>::from_nonuniform_scale(1., -1., 1.) * model;
+        model = Matrix4::<f32>::from_translation(Vector3::new(
+            -transform.offsets[0],
+            screen_height - transform.offsets[1],
+            0.,
+        )) * model;
 
         self.buf.borrow_mut().push(RenderCommand {
             tess,
