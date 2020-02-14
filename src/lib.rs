@@ -1,30 +1,31 @@
-use specs::prelude::{DispatcherBuilder, System as _, World, WorldExt as _};
+use specs::prelude::{DispatcherBuilder, World, WorldExt as _};
 use specs::shrev::EventChannel;
 
 mod asset_manager;
 mod breakout;
 mod components;
+mod constants;
 mod game_error;
+mod resources;
 mod systems;
 mod types;
 mod util;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Sprite, Transform};
+use crate::components::{Paddle, Sprite, Transform};
 pub use crate::game_error::GameError;
-use crate::systems::{FrameLimiterSystem, RenderingSystem};
-pub use crate::types::{GameEvent, WindowState};
+use crate::systems::{FrameLimiterSystem, InputSystem, PaddleSystem, RenderingSystem};
+pub use crate::types::GameEvent;
 
 pub fn start_app(world: &mut World) -> Result<(), GameError> {
     {
         world.register::<Sprite>();
         world.register::<Transform>();
+        world.register::<Paddle>();
         world.insert::<AssetManager>(AssetManager::new());
     };
 
     breakout::init(world)?;
-
-    world.insert(WindowState::default());
 
     let mut reader = {
         let mut ch = EventChannel::<GameEvent>::new();
@@ -34,18 +35,20 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
         reader
     };
 
-    let mut renderer = {
+    let renderer = {
         let (width, height) = (800, 600);
         RenderingSystem::new(width, height)
     };
 
-    renderer.setup(world);
-
     let mut dispatcher = DispatcherBuilder::new()
+        .with(InputSystem::default(), "input", &[])
+        .with(PaddleSystem::default(), "paddle movement", &["input"])
         .with_barrier()
         .with(FrameLimiterSystem::new(60), "fps_limiter", &[])
         .with_thread_local(renderer)
         .build();
+
+    dispatcher.setup(world);
 
     'app: loop {
         dispatcher.dispatch(world);

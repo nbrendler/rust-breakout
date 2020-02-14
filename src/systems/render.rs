@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use cgmath::{ortho, Matrix as _, Matrix4, SquareMatrix, Vector3, Vector4};
+use cgmath::{ortho, Matrix4, SquareMatrix, Vector3};
 use luminance::{
     context::GraphicsContext as _,
     linear::M44,
@@ -17,13 +17,11 @@ use specs::{shrev::EventChannel, Join, ReadStorage, System, World, Write};
 
 use crate::asset_manager::AssetManager;
 use crate::components::{Sprite, Transform};
-use crate::types::{GameEvent, TextureId, VertexSemantics, WindowState};
+use crate::constants::*;
+use crate::types::{GameEvent, InputEvent, TextureId, VertexSemantics};
 
 const VS_STR: &str = include_str!("../vs.shader");
 const FS_STR: &str = include_str!("../fs.shader");
-const SCALE_FACTOR: f32 = 0.8;
-const WORLD_WIDTH: f32 = 10.0; // paddle lengths
-const WORLD_HEIGHT: f32 = 40.0; // scaled by screen
 
 #[derive(UniformInterface)]
 struct ShaderInterface {
@@ -54,21 +52,21 @@ impl<'a> System<'a> for RenderingSystem {
     type SystemData = (
         ReadStorage<'a, Sprite>,
         ReadStorage<'a, Transform>,
-        Write<'a, WindowState>,
         Write<'a, EventChannel<GameEvent>>,
     );
-    fn run(
-        &mut self,
-        (sprites, transforms, mut window_state, mut event_channel): Self::SystemData,
-    ) {
+    fn run(&mut self, (sprites, transforms, mut event_channel): Self::SystemData) {
         let mut resize = false;
         for event in self.surface.borrow_mut().poll_events() {
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
+                    event_channel.single_write(GameEvent::WindowEvent(event));
                     event_channel.single_write(GameEvent::CloseWindow);
                 }
                 WindowEvent::FramebufferSize(..) => {
                     resize = true;
+                }
+                WindowEvent::Key(k, _scancode, action, _mods) => {
+                    event_channel.single_write(GameEvent::Input(InputEvent::Key(k, action)))
                 }
                 _ => {}
             }
@@ -77,8 +75,6 @@ impl<'a> System<'a> for RenderingSystem {
         if resize {
             let width = self.surface.borrow().width();
             let height = self.surface.borrow().height();
-            window_state.width = width;
-            window_state.height = height;
             self.resize(width, height);
         }
         for (sprite, transform) in (&sprites, &transforms).join() {

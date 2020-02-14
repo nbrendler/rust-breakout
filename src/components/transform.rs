@@ -39,6 +39,30 @@ impl Transform {
         self
     }
 
+    pub fn x(&self) -> f32 {
+        self.position.x
+    }
+
+    pub fn y(&self) -> f32 {
+        self.position.x
+    }
+
+    pub fn set_x<T: Into<f32>>(&mut self, x: T) {
+        self.position.x = x.into();
+    }
+
+    pub fn set_y<T: Into<f32>>(&mut self, y: T) {
+        self.position.y = y.into();
+    }
+
+    pub fn move_left<T: Into<f32>>(&mut self, x: T) {
+        self.position.x -= x.into();
+    }
+
+    pub fn move_right<T: Into<f32>>(&mut self, x: T) {
+        self.position.x += x.into();
+    }
+
     pub fn get_matrix(&self) -> Matrix4<f32> {
         let position =
             Matrix4::<f32>::from_translation(Vector3::new(self.position.x, self.position.y, 0.));

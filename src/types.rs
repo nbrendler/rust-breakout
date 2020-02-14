@@ -1,6 +1,5 @@
-use cgmath::Matrix4;
 use luminance_derive::{Semantics, Vertex};
-use luminance_glfw::Key;
+use luminance_glfw::{Action, Key, WindowEvent};
 
 pub type TextureId = usize;
 
@@ -58,10 +57,11 @@ pub struct Vertex {
 }
 
 pub enum InputEvent {
-    KeyUp(Key),
+    Key(Key, Action),
 }
 
 pub enum GameEvent {
     CloseWindow,
+    WindowEvent(WindowEvent),
     Input(InputEvent),
 }
