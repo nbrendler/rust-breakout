@@ -1,3 +1,4 @@
+use cgmath::Matrix4;
 use luminance_derive::{Semantics, Vertex};
 use luminance_glfw::Key;
 
@@ -49,7 +50,7 @@ pub enum VertexSemantics {
 }
 
 #[allow(dead_code)]
-#[derive(Vertex)]
+#[derive(Vertex, Copy, Clone)]
 #[vertex(sem = "VertexSemantics")]
 pub struct Vertex {
     pub position: VertexPosition,

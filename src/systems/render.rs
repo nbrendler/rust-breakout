@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 
-use cgmath::{ortho, EuclideanSpace, Matrix as _, Matrix4, Point3, Vector3, Vector4};
+use cgmath::{ortho, Matrix as _, Matrix4, SquareMatrix, Vector3, Vector4};
 use luminance::{
     context::GraphicsContext as _,
     linear::M44,
@@ -21,11 +21,14 @@ use crate::types::{GameEvent, TextureId, VertexSemantics, WindowState};
 
 const VS_STR: &str = include_str!("../vs.shader");
 const FS_STR: &str = include_str!("../fs.shader");
+const SCALE_FACTOR: f32 = 0.8;
+const WORLD_WIDTH: f32 = 10.0; // paddle lengths
+const WORLD_HEIGHT: f32 = 40.0; // scaled by screen
 
 #[derive(UniformInterface)]
 struct ShaderInterface {
     #[uniform(unbound)]
-    projection: Uniform<M44>,
+    world: Uniform<M44>,
     #[uniform(unbound)]
     model: Uniform<M44>,
     #[uniform(unbound)]
@@ -41,9 +44,10 @@ struct RenderCommand {
 pub struct RenderingSystem {
     assets: Vec<Texture<Flat, Dim2, NormRGB8UI>>,
     buf: RefCell<Vec<RenderCommand>>,
-    projection: Matrix4<f32>,
+    world_projection: Matrix4<f32>,
     program: Program<VertexSemantics, (), ShaderInterface>,
     surface: RefCell<GlfwSurface>,
+    square_size: u32,
 }
 
 impl<'a> System<'a> for RenderingSystem {
@@ -109,8 +113,6 @@ impl RenderingSystem {
         )
         .expect("unable to create surface");
 
-        let projection: Matrix4<f32> = ortho(0., width as f32, height as f32, 0., -1., 1.);
-
         let program = Program::<VertexSemantics, (), ShaderInterface>::from_strings(
             None, VS_STR, None, FS_STR,
         )
@@ -120,13 +122,17 @@ impl RenderingSystem {
             eprintln!("Warnings: {:?}", program.warnings);
         }
 
-        RenderingSystem {
+        let mut s = RenderingSystem {
             buf: RefCell::new(vec![]),
-            projection,
+            world_projection: Matrix4::<f32>::identity(),
             program: program.program,
             surface: RefCell::new(surface),
             assets: vec![],
-        }
+            square_size: 0,
+        };
+
+        s.resize(width, height);
+        s
     }
 
     fn render(&self) {
@@ -140,7 +146,7 @@ impl RenderingSystem {
 
                     let bound_tex = pipeline.bind_texture(&tex);
                     shading_gate.shade(&self.program, |iface, mut render_gate| {
-                        iface.projection.update(self.projection.into());
+                        iface.world.update(self.world_projection.into());
                         iface.model.update(c.model.into());
                         iface.image.update(&bound_tex);
 
@@ -158,29 +164,22 @@ impl RenderingSystem {
 
     fn queue_sprite_render(&mut self, sprite: &Sprite, transform: &Transform) {
         let tess = TessBuilder::new(self.surface.get_mut())
-            .add_vertices(&sprite.vertices[..])
+            .add_vertices(sprite.get_vertices())
             .set_mode(Mode::TriangleFan)
             .build()
             .unwrap();
 
-        let screen_height = { self.surface.borrow().height() as f32 };
+        let t = transform.get_matrix();
 
-        let (width, height) = sprite.dimensions();
+        let scale = Matrix4::<f32>::from_nonuniform_scale(1.0 / SCALE_FACTOR, 1.0 / 0.95, 1.0);
 
-        let mut model = transform.get_matrix();
-
-        // scale X by sprite width
-        model.replace_col(0, model.x * width as f32);
-        // scale Y by sprite height
-        model.replace_col(1, model.y * height as f32);
-
-        // invert Y
-        model = Matrix4::<f32>::from_nonuniform_scale(1., -1., 1.) * model;
-        model = Matrix4::<f32>::from_translation(Vector3::new(
-            -transform.offsets[0],
-            screen_height - transform.offsets[1],
-            0.,
-        )) * model;
+        let model = t
+            * scale
+            * Matrix4::<f32>::from_translation(Vector3::new(
+                -transform.offsets[0],
+                -transform.offsets[1],
+                1.,
+            ));
 
         self.buf.borrow_mut().push(RenderCommand {
             tess,
@@ -190,6 +189,21 @@ impl RenderingSystem {
     }
 
     fn resize(&mut self, width: u32, height: u32) {
-        self.projection = ortho(0., width as f32, height as f32, 0., -1., 1.);
+        let (w, h) = (width as f32, height as f32);
+
+        let constraint = w.min(h);
+        self.square_size = (constraint * SCALE_FACTOR).floor() as u32;
+        let world: Matrix4<f32> = ortho(0., WORLD_WIDTH, 0., WORLD_HEIGHT, -1., 1.);
+
+        let aspect_ratio = w / h;
+        if w >= h {
+            self.world_projection =
+                Matrix4::<f32>::from_nonuniform_scale(SCALE_FACTOR / aspect_ratio, 0.95, 1.0)
+                    * world;
+        } else {
+            self.world_projection =
+                Matrix4::<f32>::from_nonuniform_scale(SCALE_FACTOR, 0.95 * aspect_ratio, 1.0)
+                    * world;
+        }
     }
 }
