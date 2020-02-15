@@ -12,9 +12,9 @@ mod types;
 mod util;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Paddle, Sprite, Transform};
+use crate::components::{Ball, Hitbox, Paddle, Sprite, Transform};
 pub use crate::game_error::GameError;
-use crate::systems::{FrameLimiterSystem, InputSystem, PaddleSystem, RenderingSystem};
+use crate::systems::{BallSystem, FrameLimiterSystem, InputSystem, PaddleSystem, RenderingSystem};
 pub use crate::types::GameEvent;
 
 pub fn start_app(world: &mut World) -> Result<(), GameError> {
@@ -22,10 +22,10 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
         world.register::<Sprite>();
         world.register::<Transform>();
         world.register::<Paddle>();
+        world.register::<Ball>();
+        world.register::<Hitbox>();
         world.insert::<AssetManager>(AssetManager::new());
     };
-
-    breakout::init(world)?;
 
     let mut reader = {
         let mut ch = EventChannel::<GameEvent>::new();
@@ -43,10 +43,13 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
     let mut dispatcher = DispatcherBuilder::new()
         .with(InputSystem::default(), "input", &[])
         .with(PaddleSystem::default(), "paddle movement", &["input"])
+        .with(BallSystem::default(), "ball movement", &[])
         .with_barrier()
         .with(FrameLimiterSystem::new(60), "fps_limiter", &[])
         .with_thread_local(renderer)
         .build();
+
+    breakout::init(world)?;
 
     dispatcher.setup(world);
 

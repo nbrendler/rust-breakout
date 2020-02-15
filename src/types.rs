@@ -1,3 +1,4 @@
+use cgmath::Matrix4;
 use luminance_derive::{Semantics, Vertex};
 use luminance_glfw::{Action, Key, WindowEvent};
 
@@ -64,4 +65,45 @@ pub enum GameEvent {
     CloseWindow,
     WindowEvent(WindowEvent),
     Input(InputEvent),
+}
+
+#[derive(Copy, Clone)]
+pub struct ScreenContext {
+    transform: Matrix4<f32>,
+    width: u32,
+    height: u32,
+}
+
+impl ScreenContext {
+    pub fn new(transform: Matrix4<f32>, width: u32, height: u32) -> Self {
+        ScreenContext {
+            transform,
+            width,
+            height,
+        }
+    }
+
+    pub fn transform(&self) -> Matrix4<f32> {
+        self.transform
+    }
+
+    pub fn set_transform(&mut self, transform: Matrix4<f32>) {
+        self.transform = transform;
+    }
+
+    pub fn dimensions(&self) -> (u32, u32) {
+        (self.width, self.height)
+    }
+
+    pub fn set_dimensions(&mut self, dim: (u32, u32)) {
+        self.width = dim.0;
+        self.height = dim.1;
+    }
+}
+
+pub enum OverlapType {
+    OnlyX,
+    OnlyY,
+    Both,
+    None,
 }

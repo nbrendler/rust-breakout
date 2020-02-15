@@ -1,7 +1,7 @@
 use specs::prelude::*;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Sprite, Transform};
+use crate::components::{Hitbox, Sprite, Transform};
 use crate::constants::WORLD_WIDTH;
 
 #[derive(Default)]
@@ -23,7 +23,15 @@ impl Paddle {
         let s1 = Sprite::new(&tex_info, (0, 0), (50, 15));
         let t1 = Transform::default()
             .with_pos((WORLD_WIDTH / 2.0, 0.0))
+            .with_scale(50., 15.)
             .with_offsets(0.5, 0.5);
-        world.create_entity().with(s1).with(t1).with(Paddle).build();
+        let hb1 = Hitbox::new((0., 0.), (50., 15.));
+        world
+            .create_entity()
+            .with(s1)
+            .with(t1)
+            .with(Paddle)
+            .with(hb1)
+            .build();
     }
 }

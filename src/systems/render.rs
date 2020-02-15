@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::fmt;
 
 use cgmath::{ortho, Matrix4, SquareMatrix, Vector3};
 use luminance::{
@@ -13,12 +14,12 @@ use luminance::{
 };
 use luminance_derive::UniformInterface;
 use luminance_glfw::{Action, GlfwSurface, Key, Surface as _, WindowDim, WindowEvent, WindowOpt};
-use specs::{shrev::EventChannel, Join, ReadStorage, System, World, Write};
+use specs::prelude::*;
+use specs::shrev::EventChannel;
 
 use crate::asset_manager::AssetManager;
 use crate::components::{Sprite, Transform};
-use crate::constants::*;
-use crate::types::{GameEvent, InputEvent, TextureId, VertexSemantics};
+use crate::types::{GameEvent, InputEvent, ScreenContext, TextureId, VertexSemantics};
 
 const VS_STR: &str = include_str!("../vs.shader");
 const FS_STR: &str = include_str!("../fs.shader");
@@ -39,13 +40,22 @@ struct RenderCommand {
     texture: TextureId,
 }
 
+impl fmt::Debug for RenderCommand {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "RenderCommand {{ tex: {}, model: {:?} }}",
+            self.texture, self.model
+        )
+    }
+}
+
 pub struct RenderingSystem {
     assets: Vec<Texture<Flat, Dim2, NormRGB8UI>>,
     buf: RefCell<Vec<RenderCommand>>,
-    world_projection: Matrix4<f32>,
+    screen_context: ScreenContext,
     program: Program<VertexSemantics, (), ShaderInterface>,
     surface: RefCell<GlfwSurface>,
-    square_size: u32,
 }
 
 impl<'a> System<'a> for RenderingSystem {
@@ -53,8 +63,9 @@ impl<'a> System<'a> for RenderingSystem {
         ReadStorage<'a, Sprite>,
         ReadStorage<'a, Transform>,
         Write<'a, EventChannel<GameEvent>>,
+        WriteExpect<'a, ScreenContext>,
     );
-    fn run(&mut self, (sprites, transforms, mut event_channel): Self::SystemData) {
+    fn run(&mut self, (sprites, transforms, mut event_channel, mut screen_ctx): Self::SystemData) {
         let mut resize = false;
         for event in self.surface.borrow_mut().poll_events() {
             match event {
@@ -76,6 +87,8 @@ impl<'a> System<'a> for RenderingSystem {
             let width = self.surface.borrow().width();
             let height = self.surface.borrow().height();
             self.resize(width, height);
+            screen_ctx.set_dimensions(self.screen_context.dimensions());
+            screen_ctx.set_transform(self.screen_context.transform());
         }
         for (sprite, transform) in (&sprites, &transforms).join() {
             self.queue_sprite_render(&sprite, &transform);
@@ -85,18 +98,21 @@ impl<'a> System<'a> for RenderingSystem {
     }
 
     fn setup(&mut self, world: &mut World) {
-        println!("setup");
-        let mut asset_manager = world.fetch_mut::<AssetManager>();
+        println!("render setup");
         let surface = self.surface.get_mut();
-        let assets = &mut self.assets;
-        asset_manager.upload_textures(|w, h, raw| {
-            let tex =
-                Texture::<Flat, Dim2, NormRGB8UI>::new(surface, [w, h], 0, Sampler::default())
-                    .expect("luminance texture creation");
+        {
+            let mut asset_manager = world.fetch_mut::<AssetManager>();
+            let assets = &mut self.assets;
+            asset_manager.upload_textures(|w, h, raw| {
+                let tex =
+                    Texture::<Flat, Dim2, NormRGB8UI>::new(surface, [w, h], 0, Sampler::default())
+                        .expect("luminance texture creation");
 
-            tex.upload_raw(GenMipmaps::No, raw.as_slice()).unwrap();
-            assets.push(tex);
-        });
+                tex.upload_raw(GenMipmaps::No, raw.as_slice()).unwrap();
+                assets.push(tex);
+            });
+        }
+        world.insert(self.screen_context);
     }
 }
 
@@ -118,13 +134,13 @@ impl RenderingSystem {
             eprintln!("Warnings: {:?}", program.warnings);
         }
 
+        let screen_context = ScreenContext::new(Matrix4::<f32>::identity(), width, height);
         let mut s = RenderingSystem {
             buf: RefCell::new(vec![]),
-            world_projection: Matrix4::<f32>::identity(),
             program: program.program,
             surface: RefCell::new(surface),
             assets: vec![],
-            square_size: 0,
+            screen_context,
         };
 
         s.resize(width, height);
@@ -142,7 +158,7 @@ impl RenderingSystem {
 
                     let bound_tex = pipeline.bind_texture(&tex);
                     shading_gate.shade(&self.program, |iface, mut render_gate| {
-                        iface.world.update(self.world_projection.into());
+                        iface.world.update(self.screen_context.transform().into());
                         iface.model.update(c.model.into());
                         iface.image.update(&bound_tex);
 
@@ -165,17 +181,7 @@ impl RenderingSystem {
             .build()
             .unwrap();
 
-        let t = transform.get_matrix();
-
-        let scale = Matrix4::<f32>::from_nonuniform_scale(1.0 / SCALE_FACTOR, 1.0 / 0.95, 1.0);
-
-        let model = t
-            * scale
-            * Matrix4::<f32>::from_translation(Vector3::new(
-                -transform.offsets[0],
-                -transform.offsets[1],
-                1.,
-            ));
+        let model = transform.get_matrix();
 
         self.buf.borrow_mut().push(RenderCommand {
             tess,
@@ -187,19 +193,11 @@ impl RenderingSystem {
     fn resize(&mut self, width: u32, height: u32) {
         let (w, h) = (width as f32, height as f32);
 
-        let constraint = w.min(h);
-        self.square_size = (constraint * SCALE_FACTOR).floor() as u32;
-        let world: Matrix4<f32> = ortho(0., WORLD_WIDTH, 0., WORLD_HEIGHT, -1., 1.);
+        let world: Matrix4<f32> = ortho(0., w, 0., h, -1., 1.);
 
-        let aspect_ratio = w / h;
-        if w >= h {
-            self.world_projection =
-                Matrix4::<f32>::from_nonuniform_scale(SCALE_FACTOR / aspect_ratio, 0.95, 1.0)
-                    * world;
-        } else {
-            self.world_projection =
-                Matrix4::<f32>::from_nonuniform_scale(SCALE_FACTOR, 0.95 * aspect_ratio, 1.0)
-                    * world;
-        }
+        let position = Matrix4::<f32>::from_translation(Vector3::new((w - 500.) / 2.0, 10., 0.));
+
+        self.screen_context.set_transform(world * position);
+        self.screen_context.set_dimensions((width, height));
     }
 }
