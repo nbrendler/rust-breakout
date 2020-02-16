@@ -101,6 +101,7 @@ impl ScreenContext {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub enum OverlapType {
     OnlyX,
     OnlyY,

@@ -29,7 +29,7 @@ impl Ball {
         };
         let s1 = Sprite::new(&tex_info, (0, 0), (15, 15));
         let t1 = Transform::default()
-            .with_pos((0.0, WORLD_HEIGHT / 2.0))
+            .with_pos((0.5, WORLD_HEIGHT / 2.0))
             .with_scale(15., 15.)
             .with_offsets(0.5, 0.5);
         let hb1 = Hitbox::new((0., 0.), (15., 15.));
