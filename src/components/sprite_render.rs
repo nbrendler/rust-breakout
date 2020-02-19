@@ -1,10 +1,14 @@
+use cgmath::{Matrix, Matrix4, Vector3, Vector4};
 use specs::{storage::DenseVecStorage, Component};
 
+use crate::collidable::Collidable;
+use crate::components::Transform;
 use crate::types::{TextureInfo, Vertex, VertexPosition, VertexTextureCoords};
 
 #[derive(Copy, Clone)]
 pub struct Sprite {
     pub texture: TextureInfo,
+    pub offsets: [f32; 2],
     width: u32,
     height: u32,
     vertices: [Vertex; 4],
@@ -61,6 +65,7 @@ impl Sprite {
             width,
             height,
             vertices,
+            offsets: [0., 0.],
         }
     }
     pub fn dimensions(&self) -> (u32, u32) {
@@ -68,5 +73,31 @@ impl Sprite {
     }
     pub fn get_vertices(&self) -> &[Vertex] {
         &self.vertices
+    }
+    pub fn get_model_matrix(&self) -> Matrix4<f32> {
+        let (w, h) = self.dimensions();
+
+        // offsets are in uv space
+        let offsets =
+            Matrix4::<f32>::from_translation(Vector3::new(-self.offsets[0], -self.offsets[1], 0.));
+
+        let model = Matrix4::<f32>::from_nonuniform_scale(w as f32, -1.0 * h as f32, 1.0);
+
+        model * offsets
+    }
+}
+
+impl Collidable for Sprite {
+    fn get_hitbox(&self, transform: &Transform) -> ((i32, i32), (i32, i32)) {
+        let m = self.get_model_matrix();
+        let t = transform.matrix();
+
+        let v1 = t * m * Vector4::new(0., 1., 0., 1.);
+        let v2 = t * m * Vector4::new(1., 0., 0., 1.);
+
+        (
+            (v1.x.floor() as i32, v1.y.floor() as i32),
+            (v2.x.floor() as i32, v2.y.floor() as i32),
+        )
     }
 }

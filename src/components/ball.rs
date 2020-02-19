@@ -2,8 +2,8 @@ use cgmath::{InnerSpace, Vector2};
 use specs::prelude::*;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Hitbox, Sprite, Transform};
-use crate::constants::{BALL_SPEED, WORLD_HEIGHT};
+use crate::components::{Sprite, Transform};
+use crate::constants::{BALL_SPEED, WORLD_HEIGHT, WORLD_WIDTH};
 
 pub struct Ball {
     pub velocity: Vector2<f32>,
@@ -15,6 +15,13 @@ impl Component for Ball {
 
 impl Ball {
     pub fn init(world: &mut World) {
+        let global_t = {
+            use cgmath::{Matrix4, Vector3};
+            Transform::default()
+                .with_pos((100., 0.))
+                .with_scale((15., 15.))
+        };
+
         let tex_info = {
             let mut asset_manager = world.fetch_mut::<AssetManager>();
             asset_manager
@@ -27,18 +34,10 @@ impl Ball {
         let ball = Ball {
             velocity: initial_dir * BALL_SPEED,
         };
-        let s1 = Sprite::new(&tex_info, (0, 0), (15, 15));
-        let t1 = Transform::default()
-            .with_pos((0.5, WORLD_HEIGHT / 2.0))
-            .with_scale(15., 15.)
-            .with_offsets(0.5, 0.5);
-        let hb1 = Hitbox::new((0., 0.), (15., 15.));
-        world
-            .create_entity()
-            .with(s1)
-            .with(t1)
-            .with(ball)
-            .with(hb1)
-            .build();
+        let mut s1 = Sprite::new(&tex_info, (0, 0), (15, 15));
+        s1.offsets = [0.5, 0.5];
+        let mut t1 = Transform::default().with_pos((0.5, WORLD_HEIGHT / 2.0));
+        t1.global = global_t.matrix();
+        world.create_entity().with(s1).with(t1).with(ball).build();
     }
 }

@@ -1,7 +1,9 @@
+#![allow(clippy::float_cmp)]
+
 use std::cell::RefCell;
 use std::fmt;
 
-use cgmath::{ortho, Matrix4, SquareMatrix, Vector3};
+use cgmath::{ortho, Matrix4, SquareMatrix};
 use luminance::{
     context::GraphicsContext as _,
     linear::M44,
@@ -18,7 +20,7 @@ use specs::prelude::*;
 use specs::shrev::EventChannel;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Sprite, Transform};
+use crate::components::{GlobalTransform, Sprite, Transform};
 use crate::types::{GameEvent, InputEvent, ScreenContext, TextureId, VertexSemantics};
 
 const VS_STR: &str = include_str!("../vs.shader");
@@ -31,12 +33,15 @@ struct ShaderInterface {
     #[uniform(unbound)]
     model: Uniform<M44>,
     #[uniform(unbound)]
+    view: Uniform<M44>,
+    #[uniform(unbound)]
     image: Uniform<&'static BoundTexture<'static, Flat, Dim2, NormUnsigned>>,
 }
 
 struct RenderCommand {
     tess: Tess,
     model: Matrix4<f32>,
+    view: Matrix4<f32>,
     texture: TextureId,
 }
 
@@ -64,9 +69,15 @@ impl<'a> System<'a> for RenderingSystem {
         ReadStorage<'a, Transform>,
         Write<'a, EventChannel<GameEvent>>,
         WriteExpect<'a, ScreenContext>,
+        WriteExpect<'a, AssetManager>,
+        ReadExpect<'a, GlobalTransform>,
     );
-    fn run(&mut self, (sprites, transforms, mut event_channel, mut screen_ctx): Self::SystemData) {
+    fn run(
+        &mut self,
+        (sprites, transforms, mut event_channel, mut screen_ctx, mut asset_manager, global): Self::SystemData,
+    ) {
         let mut resize = false;
+        self.process_assets(&mut asset_manager);
         for event in self.surface.borrow_mut().poll_events() {
             match event {
                 WindowEvent::Close | WindowEvent::Key(Key::Escape, _, Action::Release, _) => {
@@ -91,27 +102,15 @@ impl<'a> System<'a> for RenderingSystem {
             screen_ctx.set_transform(self.screen_context.transform());
         }
         for (sprite, transform) in (&sprites, &transforms).join() {
-            self.queue_sprite_render(&sprite, &transform);
+            self.queue_sprite_render(&sprite, &transform, &global);
         }
 
         self.render();
     }
 
     fn setup(&mut self, world: &mut World) {
-        println!("render setup");
-        let surface = self.surface.get_mut();
-        {
-            let mut asset_manager = world.fetch_mut::<AssetManager>();
-            let assets = &mut self.assets;
-            asset_manager.upload_textures(|w, h, raw| {
-                let tex =
-                    Texture::<Flat, Dim2, NormRGB8UI>::new(surface, [w, h], 0, Sampler::default())
-                        .expect("luminance texture creation");
-
-                tex.upload_raw(GenMipmaps::No, raw.as_slice()).unwrap();
-                assets.push(tex);
-            });
-        }
+        Self::SystemData::setup(world);
+        self.process_assets(&mut world.fetch_mut::<AssetManager>());
         world.insert(self.screen_context);
     }
 }
@@ -160,6 +159,7 @@ impl RenderingSystem {
                     shading_gate.shade(&self.program, |iface, mut render_gate| {
                         iface.world.update(self.screen_context.transform().into());
                         iface.model.update(c.model.into());
+                        iface.view.update(c.view.into());
                         iface.image.update(&bound_tex);
 
                         render_gate.render(&RenderState::default(), |mut tess_gate| {
@@ -174,18 +174,26 @@ impl RenderingSystem {
         self.surface.borrow_mut().swap_buffers();
     }
 
-    fn queue_sprite_render(&mut self, sprite: &Sprite, transform: &Transform) {
+    fn queue_sprite_render(
+        &mut self,
+        sprite: &Sprite,
+        transform: &Transform,
+        global: &GlobalTransform,
+    ) {
         let tess = TessBuilder::new(self.surface.get_mut())
             .add_vertices(sprite.get_vertices())
             .set_mode(Mode::TriangleFan)
             .build()
             .unwrap();
+        let model = sprite.get_model_matrix();
 
-        let model = transform.get_matrix();
+        let mut t = *transform;
+        let p = t.as_screen_point();
 
         self.buf.borrow_mut().push(RenderCommand {
             tess,
             model,
+            view: t.with_pos((p.x, p.y)).matrix(),
             texture: sprite.texture.id,
         });
     }
@@ -195,9 +203,52 @@ impl RenderingSystem {
 
         let world: Matrix4<f32> = ortho(0., w, 0., h, -1., 1.);
 
-        let position = Matrix4::<f32>::from_translation(Vector3::new((w - 500.) / 2.0, 10., 0.));
-
-        self.screen_context.set_transform(world * position);
+        self.screen_context.set_transform(world);
         self.screen_context.set_dimensions((width, height));
+    }
+
+    fn process_assets(&mut self, asset_manager: &mut AssetManager) {
+        {
+            let assets = &mut self.assets;
+            let surface = self.surface.get_mut();
+            asset_manager.upload_textures(|w, h, raw| {
+                let tex =
+                    Texture::<Flat, Dim2, NormRGB8UI>::new(surface, [w, h], 0, Sampler::default())
+                        .expect("luminance texture creation");
+
+                tex.upload_raw(GenMipmaps::No, raw.as_slice()).unwrap();
+                assets.push(tex);
+            });
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::types::TextureInfo;
+    use cgmath::Vector4;
+
+    #[test]
+    fn test_sprite_offsets() {
+        let tex = TextureInfo::new(0, 100, 50);
+        let mut s = Sprite::new(&tex, (0, 0), (100, 50));
+        s.offsets = [0.5, 0.5];
+
+        let m = s.get_model_matrix();
+        // top left corner of sprite
+        let tl = m * Vector4::unit_w();
+        // bottom right
+        let br = m * Vector4::new(1., 1., 0., 1.);
+
+        assert_eq!(round(tl.x), -50.0);
+        assert_eq!(round(tl.y), 25.0);
+        assert_eq!(round(br.x), 50.0);
+        assert_eq!(round(br.y), -25.0);
+    }
+
+    fn round(f: f32) -> f32 {
+        (f * 100.0).round() / 100.0
     }
 }

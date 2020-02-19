@@ -56,7 +56,7 @@ impl<'a> System<'a> for InputSystem {
 
     fn setup(&mut self, world: &mut World) {
         println!("input setup");
-        world.insert(InputState::default());
+        Self::SystemData::setup(world);
         {
             let mut ch = world.fetch_mut::<EventChannel<GameEvent>>();
             self.reader = Some(ch.register_reader());

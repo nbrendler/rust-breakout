@@ -1,8 +1,9 @@
-use specs::prelude::{DispatcherBuilder, World, WorldExt as _};
+use specs::prelude::{DispatcherBuilder, World};
 use specs::shrev::EventChannel;
 
 mod asset_manager;
 mod breakout;
+mod collidable;
 mod components;
 mod constants;
 mod game_error;
@@ -12,18 +13,12 @@ mod types;
 mod util;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Ball, Hitbox, Paddle, Sprite, Transform};
 pub use crate::game_error::GameError;
 use crate::systems::{BallSystem, FrameLimiterSystem, InputSystem, PaddleSystem, RenderingSystem};
 pub use crate::types::GameEvent;
 
 pub fn start_app(world: &mut World) -> Result<(), GameError> {
     {
-        world.register::<Sprite>();
-        world.register::<Transform>();
-        world.register::<Paddle>();
-        world.register::<Ball>();
-        world.register::<Hitbox>();
         world.insert::<AssetManager>(AssetManager::new());
     };
 
@@ -49,9 +44,9 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
         .with_thread_local(renderer)
         .build();
 
-    breakout::init(world)?;
-
     dispatcher.setup(world);
+
+    breakout::init(world)?;
 
     'app: loop {
         dispatcher.dispatch(world);

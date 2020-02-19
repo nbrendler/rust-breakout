@@ -3,7 +3,7 @@ use std::time::Instant;
 use specs::prelude::*;
 
 use crate::components::{Paddle, Transform};
-use crate::constants::PADDLE_SPEED;
+use crate::constants::{PADDLE_SPEED, WORLD_WIDTH};
 use crate::resources::InputState;
 
 pub struct PaddleSystem {
@@ -27,12 +27,13 @@ impl<'a> System<'a> for PaddleSystem {
             for (t, _) in (&mut transforms, &paddles).join() {
                 let delta_t: f32 =
                     (Instant::now() - self.last_called.unwrap()).as_millis() as f32 / 1000.0;
+                // TODO: set the bounds based on the PPU
                 if input.left && !input.right {
                     t.move_left(PADDLE_SPEED * delta_t);
-                    t.set_x(t.x().max(0.5));
+                    t.set_x(t.position.x.max(0.));
                 } else if !input.left && input.right {
                     t.move_right(PADDLE_SPEED * delta_t);
-                    t.set_x(t.x().min(9.5));
+                    t.set_x(t.position.x.min(WORLD_WIDTH));
                 }
             }
         }
