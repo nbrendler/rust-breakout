@@ -4,7 +4,7 @@ use crate::components::Transform;
 use crate::types::OverlapType;
 
 pub trait Collidable {
-    fn get_hitbox(&self, transform: &Transform) -> ((i32, i32), (i32, i32));
+    fn get_hitbox(&self) -> ((f32, f32), (f32, f32));
     fn intersects<C: Collidable>(
         &self,
         other: &C,
@@ -22,32 +22,25 @@ pub trait Collidable {
             return OverlapType::None;
         }
 
-        let y_overlap = (y0 - b1).abs().min((b0 - y1).abs());
-        let x_overlap = (x0 - a1).abs().min((a0 - x1).abs());
+        let c = center.as_screen_point();
 
-        match (x_overlap == 0, y_overlap == 0) {
+        let x_coll = (c.x <= a0 || c.x >= a1) && (b0 <= c.y && c.y <= b1);
+        let y_coll = c.y >= b1 && (a0 <= c.x && c.x <= a1);
+
+        match (x_coll, y_coll) {
             (true, false) => OverlapType::OnlyX,
             (false, true) => OverlapType::OnlyY,
-            (true, true) => OverlapType::Both,
-            _ => OverlapType::None,
+            _ => OverlapType::Both,
         }
     }
 
-    fn corners(&self, center: &Transform) -> ((i32, i32), (i32, i32)) {
-        let (bl, tr) = self.get_hitbox(center);
+    fn corners(&self, center: &Transform) -> ((f32, f32), (f32, f32)) {
+        let (bl, tr) = self.get_hitbox();
         let c: Point2<f32> = center.as_screen_point();
 
-        let half_width = (tr.0 - bl.0) / 2;
-        let half_height = (tr.1 - bl.1) / 2;
         (
-            (
-                c.x.round() as i32 - half_width,
-                c.y.round() as i32 - half_height,
-            ),
-            (
-                c.x.round() as i32 + half_width,
-                c.y.round() as i32 + half_height,
-            ),
+            (c.x - bl.0.abs(), c.y - bl.1.abs()),
+            (c.x + tr.0.abs(), c.y + tr.1.abs()),
         )
     }
 }

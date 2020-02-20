@@ -50,6 +50,7 @@ impl<'a> System<'a> for BallSystem {
                 let mut bounce_horiz = false;
                 let mut bounce_vert = false;
 
+                // this only works for symmetric sprites
                 let half_width = (x1 - x0) as f32 / 2.0;
                 let half_height = (y1 - y0) as f32 / 2.0;
 
@@ -64,7 +65,6 @@ impl<'a> System<'a> for BallSystem {
                 }
 
                 if (center.y - half_height) < lower_bounds.y {
-                    println!("loser");
                     b.velocity = Vector2::new(0., 0.);
                 }
 

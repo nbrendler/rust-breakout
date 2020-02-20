@@ -88,16 +88,12 @@ impl Sprite {
 }
 
 impl Collidable for Sprite {
-    fn get_hitbox(&self, transform: &Transform) -> ((i32, i32), (i32, i32)) {
+    fn get_hitbox(&self) -> ((f32, f32), (f32, f32)) {
         let m = self.get_model_matrix();
-        let t = transform.matrix();
 
-        let v1 = t * m * Vector4::new(0., 1., 0., 1.);
-        let v2 = t * m * Vector4::new(1., 0., 0., 1.);
+        let v1 = m * Vector4::new(0., 1., 0., 1.);
+        let v2 = m * Vector4::new(1., 0., 0., 1.);
 
-        (
-            (v1.x.floor() as i32, v1.y.floor() as i32),
-            (v2.x.floor() as i32, v2.y.floor() as i32),
-        )
+        ((v1.x, v1.y), (v2.x, v2.y))
     }
 }
