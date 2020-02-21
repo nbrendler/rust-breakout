@@ -1,8 +1,6 @@
 use cgmath::{Matrix4, Point2, SquareMatrix, Vector2, Vector3, Vector4};
 use specs::{storage::DenseVecStorage, Component};
 
-pub struct GlobalTransform(pub Transform);
-
 // TODO: rotation
 #[derive(Copy, Clone, Debug)]
 pub struct Transform {
@@ -56,11 +54,6 @@ impl Transform {
         let position =
             Matrix4::<f32>::from_translation(Vector3::new(self.position.x, self.position.y, 0.));
         position * Matrix4::<f32>::from_nonuniform_scale(self.scale.x, self.scale.y, 1.0)
-    }
-
-    pub fn as_world_point(&self) -> Point2<f32> {
-        let v = (self.matrix() * Vector4::unit_w()).xy();
-        Point2::new(v.x, v.y)
     }
 
     pub fn as_screen_point(&self) -> Point2<f32> {

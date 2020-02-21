@@ -1,4 +1,4 @@
-use specs::prelude::{DispatcherBuilder, World};
+use specs::prelude::{DispatcherBuilder, World, WorldExt};
 use specs::shrev::EventChannel;
 
 mod asset_manager;
@@ -50,12 +50,15 @@ pub fn start_app(world: &mut World) -> Result<(), GameError> {
 
     'app: loop {
         dispatcher.dispatch(world);
-        let ch = world.fetch::<EventChannel<GameEvent>>();
-        for event in ch.read(&mut reader) {
-            if let GameEvent::CloseWindow = event {
-                break 'app;
+        {
+            let ch = world.fetch::<EventChannel<GameEvent>>();
+            for event in ch.read(&mut reader) {
+                if let GameEvent::CloseWindow = event {
+                    break 'app;
+                }
             }
         }
+        world.maintain();
     }
 
     Ok(())

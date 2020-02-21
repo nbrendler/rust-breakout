@@ -25,7 +25,7 @@ pub trait Collidable {
         let c = center.as_screen_point();
 
         let x_coll = (c.x <= a0 || c.x >= a1) && (b0 <= c.y && c.y <= b1);
-        let y_coll = c.y >= b1 && (a0 <= c.x && c.x <= a1);
+        let y_coll = (c.y <= b0 || c.y >= b1) && (a0 <= c.x && c.x <= a1);
 
         match (x_coll, y_coll) {
             (true, false) => OverlapType::OnlyX,

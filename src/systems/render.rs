@@ -20,7 +20,7 @@ use specs::prelude::*;
 use specs::shrev::EventChannel;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{GlobalTransform, Sprite, Transform};
+use crate::components::{Sprite, Transform};
 use crate::types::{GameEvent, InputEvent, ScreenContext, TextureId, VertexSemantics};
 
 const VS_STR: &str = include_str!("../vs.shader");
@@ -70,11 +70,10 @@ impl<'a> System<'a> for RenderingSystem {
         Write<'a, EventChannel<GameEvent>>,
         WriteExpect<'a, ScreenContext>,
         WriteExpect<'a, AssetManager>,
-        ReadExpect<'a, GlobalTransform>,
     );
     fn run(
         &mut self,
-        (sprites, transforms, mut event_channel, mut screen_ctx, mut asset_manager, global): Self::SystemData,
+        (sprites, transforms, mut event_channel, mut screen_ctx, mut asset_manager): Self::SystemData,
     ) {
         let mut resize = false;
         self.process_assets(&mut asset_manager);
@@ -102,7 +101,7 @@ impl<'a> System<'a> for RenderingSystem {
             screen_ctx.set_transform(self.screen_context.transform());
         }
         for (sprite, transform) in (&sprites, &transforms).join() {
-            self.queue_sprite_render(&sprite, &transform, &global);
+            self.queue_sprite_render(&sprite, &transform);
         }
 
         self.render();
@@ -174,12 +173,7 @@ impl RenderingSystem {
         self.surface.borrow_mut().swap_buffers();
     }
 
-    fn queue_sprite_render(
-        &mut self,
-        sprite: &Sprite,
-        transform: &Transform,
-        global: &GlobalTransform,
-    ) {
+    fn queue_sprite_render(&mut self, sprite: &Sprite, transform: &Transform) {
         let tess = TessBuilder::new(self.surface.get_mut())
             .add_vertices(sprite.get_vertices())
             .set_mode(Mode::TriangleFan)
@@ -187,7 +181,7 @@ impl RenderingSystem {
             .unwrap();
         let model = sprite.get_model_matrix();
 
-        let mut t = *transform;
+        let t = *transform;
         let p = t.as_screen_point();
 
         self.buf.borrow_mut().push(RenderCommand {

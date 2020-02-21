@@ -4,7 +4,7 @@ use cgmath::Vector2;
 use specs::prelude::*;
 
 use crate::collidable::Collidable;
-use crate::components::{Ball, Paddle, Sprite, Transform};
+use crate::components::{Ball, Block, IsCollidable, Sprite, Transform};
 use crate::constants::{WORLD_HEIGHT, WORLD_WIDTH};
 use crate::types::OverlapType;
 
@@ -21,12 +21,16 @@ impl Default for BallSystem {
 impl<'a> System<'a> for BallSystem {
     type SystemData = (
         WriteStorage<'a, Ball>,
-        ReadStorage<'a, Paddle>,
+        ReadStorage<'a, IsCollidable>,
+        ReadStorage<'a, Block>,
         WriteStorage<'a, Transform>,
         ReadStorage<'a, Sprite>,
         Entities<'a>,
     );
-    fn run(&mut self, (mut balls, paddles, mut transforms, sprites, entities): Self::SystemData) {
+    fn run(
+        &mut self,
+        (mut balls, collidables, blocks, mut transforms, sprites, entities): Self::SystemData,
+    ) {
         if self.last_called.is_some() {
             let mut ball_info: Vec<(Entity, bool, bool)> = vec![];
 
@@ -71,23 +75,39 @@ impl<'a> System<'a> for BallSystem {
                 ball_info.push((e, bounce_horiz, bounce_vert));
             }
 
-            // Check if it bounced off a paddle
-            for (_, t, s) in (&paddles, &transforms, &sprites).join() {
-                for (e, bounce_horiz, bounce_vert) in ball_info.iter_mut() {
-                    let ball_sprite = sprites.get(*e).unwrap();
-                    let ball_transform = transforms.get(*e).unwrap();
+            // Check if it bounced off something
+            for (_, t, s, maybe_block, e) in (
+                &collidables,
+                &transforms,
+                &sprites,
+                blocks.maybe(),
+                &entities,
+            )
+                .join()
+            {
+                for (ball_e, bounce_horiz, bounce_vert) in ball_info.iter_mut() {
+                    let ball_sprite = sprites.get(*ball_e).unwrap();
+                    let ball_transform = transforms.get(*ball_e).unwrap();
+                    let mut hit_something = false;
                     match ball_sprite.intersects(s, &ball_transform, &t) {
                         OverlapType::None => {}
                         OverlapType::OnlyX => {
                             *bounce_horiz = true;
+                            hit_something = true;
                         }
                         OverlapType::OnlyY => {
                             *bounce_vert = true;
+                            hit_something = true;
                         }
                         OverlapType::Both => {
                             *bounce_horiz = true;
                             *bounce_vert = true;
+                            hit_something = true;
                         }
+                    }
+
+                    if maybe_block.is_some() && hit_something {
+                        entities.delete(e).unwrap();
                     }
                 }
             }

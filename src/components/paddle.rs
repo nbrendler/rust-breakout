@@ -1,7 +1,7 @@
 use specs::prelude::*;
 
 use crate::asset_manager::AssetManager;
-use crate::components::{Sprite, Transform};
+use crate::components::{IsCollidable, Sprite, Transform};
 use crate::constants::WORLD_WIDTH;
 
 #[derive(Default)]
@@ -14,7 +14,6 @@ impl Component for Paddle {
 impl Paddle {
     pub fn init(world: &mut World) {
         let global_t = {
-            use cgmath::{Matrix4, Vector3};
             Transform::default()
                 .with_pos((100., 0.))
                 .with_scale((15., 15.))
@@ -30,6 +29,12 @@ impl Paddle {
         s1.offsets = [0.5, 0.5];
         let mut t1 = Transform::default().with_pos((WORLD_WIDTH / 2.0, 1.0));
         t1.global = global_t.matrix();
-        world.create_entity().with(s1).with(t1).with(Paddle).build();
+        world
+            .create_entity()
+            .with(s1)
+            .with(t1)
+            .with(Paddle)
+            .with(IsCollidable)
+            .build();
     }
 }

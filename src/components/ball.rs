@@ -3,7 +3,7 @@ use specs::prelude::*;
 
 use crate::asset_manager::AssetManager;
 use crate::components::{Sprite, Transform};
-use crate::constants::{BALL_SPEED, WORLD_HEIGHT, WORLD_WIDTH};
+use crate::constants::{BALL_SPEED, WORLD_HEIGHT};
 
 pub struct Ball {
     pub velocity: Vector2<f32>,
@@ -16,7 +16,6 @@ impl Component for Ball {
 impl Ball {
     pub fn init(world: &mut World) {
         let global_t = {
-            use cgmath::{Matrix4, Vector3};
             Transform::default()
                 .with_pos((100., 0.))
                 .with_scale((15., 15.))

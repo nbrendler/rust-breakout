@@ -4,26 +4,6 @@ use luminance_glfw::{Action, Key, WindowEvent};
 
 pub type TextureId = usize;
 
-pub struct WindowState {
-    pub width: u32,
-    pub height: u32,
-}
-
-impl WindowState {
-    pub fn new(width: u32, height: u32) -> Self {
-        Self { width, height }
-    }
-}
-
-impl Default for WindowState {
-    fn default() -> Self {
-        WindowState {
-            width: 800,
-            height: 600,
-        }
-    }
-}
-
 #[derive(Copy, Clone)]
 pub struct TextureInfo {
     pub id: TextureId,

@@ -1,8 +1,7 @@
-use cgmath::{Matrix, Matrix4, Vector3, Vector4};
+use cgmath::{Matrix4, Vector3, Vector4};
 use specs::{storage::DenseVecStorage, Component};
 
 use crate::collidable::Collidable;
-use crate::components::Transform;
 use crate::types::{TextureInfo, Vertex, VertexPosition, VertexTextureCoords};
 
 #[derive(Copy, Clone)]
